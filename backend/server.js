@@ -5,6 +5,9 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
+// Sovereign Bridge Integration
+const sovereignBridge = require('../bridge');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -68,12 +71,81 @@ async function initializeReactorCore() {
     }
 }
 
-// Serve static files
+// Middleware
+app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
+});
+
+// ═══════════════════════════════════════════════════════
+// SOVEREIGN CORE API ENDPOINTS
+// ═══════════════════════════════════════════════════════
+
+// Get Sovereign Core status
+app.get('/api/sovereign/status', async (req, res) => {
+  try {
+    const status = await sovereignBridge.getStatus();
+    res.json(status || { error: 'Sovereign Core offline' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send message to ITT Council
+app.post('/api/sovereign/chat', async (req, res) => {
+  try {
+    const { message, session_id } = req.body;
+    const result = await sovereignBridge.chat(message, session_id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create new session
+app.post('/api/sovereign/session', async (req, res) => {
+  try {
+    const { title } = req.body;
+    const sessionId = await sovereignBridge.createSession(title);
+    res.json({ session_id: sessionId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get session history
+app.get('/api/sovereign/session/:id/history', async (req, res) => {
+  try {
+    const history = await sovereignBridge.getHistory(req.params.id);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Store fact in FluxCompass
+app.post('/api/sovereign/fact', async (req, res) => {
+  try {
+    const { key, value, session_id } = req.body;
+    await sovereignBridge.storeFact(key, value, session_id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Recall facts
+app.post('/api/sovereign/recall', async (req, res) => {
+  try {
+    const { query } = req.body;
+    const facts = await sovereignBridge.recallFacts(query);
+    res.json({ facts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Runtime state
@@ -130,6 +202,16 @@ io.on('connection', (socket) => {
   // Send initial state
   socket.emit('runtime_state', runtimeState);
   socket.emit('memory_state', memory);
+
+  // Handle Sovereign Core chat requests via WebSocket
+  socket.on('sovereign_chat', async (data) => {
+    try {
+      const result = await sovereignBridge.chat(data.message, data.session_id);
+      socket.emit('sovereign_response', result);
+    } catch (err) {
+      socket.emit('sovereign_error', { error: err.message });
+    }
+  });
 
   // Handle agent updates
   socket.on('agent_update', (data) => {
@@ -202,6 +284,21 @@ server.listen(PORT, async () => {
   // Initialize Reactor Core
   await initializeReactorCore();
 
+  // Connect to Sovereign Core
+  try {
+    await sovereignBridge.connect();
+    console.log('🔗 Sovereign Bridge: CONNECTED');
+    runtimeState.SOVEREIGN_CORE = 'ONLINE';
+
+    // Relay Sovereign messages to all Socket.io clients
+    sovereignBridge.onMessage((msg) => {
+      io.emit('sovereign_event', msg);
+    });
+  } catch (err) {
+    console.log('⚠️  Sovereign Bridge: OFFLINE (will retry)');
+    runtimeState.SOVEREIGN_CORE = 'OFFLINE';
+  }
+
   console.log('');
   console.log('🌌 ═══════════════════════════════════════════════');
   console.log('   LUMENIS ONE2LVOS RUNTIME INITIALIZED');
@@ -211,6 +308,7 @@ server.listen(PORT, async () => {
   console.log(`🏠 Workstation: ${WORKSTATION_CONFIG.stationName}`);
   console.log(`🧠 Runtime State: ${runtimeState.LUMENIS_CORE}`);
   console.log(`🦝 Agents: ${Object.keys(memory.agents).length} active`);
+  console.log(`🔮 Sovereign Core: ${runtimeState.SOVEREIGN_CORE || 'OFFLINE'}`);
   console.log('🔗 WebSocket: Ready');
   console.log('💾 Memory: Loaded');
   console.log('');
