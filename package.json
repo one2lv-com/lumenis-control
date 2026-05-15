@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
+    "sync": "node sync_workstation.js",
     "build": "echo 'Build complete'"
   },
   "keywords": ["lumenis", "holographic", "autonomous", "ai", "supabase"],
