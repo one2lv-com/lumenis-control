@@ -39,6 +39,31 @@ MODELS = {
         "top_p": 0.7,
         "thinking": False,
         "use_case": "fast inference, simple tasks"
+    },
+    "nemotron_super": {
+        "id": "nvidia/nemotron-3-super-120b-a12b",
+        "max_tokens": 16384,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "thinking": True,
+        "reasoning_budget": 16384,
+        "use_case": "ultra-large reasoning, 120B parameters"
+    },
+    "minimax": {
+        "id": "minimaxai/minimax-m2.7",
+        "max_tokens": 8192,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "thinking": False,
+        "use_case": "balanced performance, multimodal"
+    },
+    "stepfun": {
+        "id": "stepfun-ai/step-3.5-flash",
+        "max_tokens": 16384,
+        "temperature": 1.0,
+        "top_p": 0.9,
+        "thinking": True,
+        "use_case": "flash inference with reasoning"
     }
 }
 
@@ -209,6 +234,238 @@ class GemmaReactor:
             "errors": self._error_count,
             "online": bool(self.api_key),
             "use_case": MODELS["gemma"]["use_case"]
+        }
+
+
+class NemotronSuperReactor:
+    """
+    Ultra-large reactor powered by NVIDIA Nemotron-3-Super-120B-A12B.
+    120B parameters with thinking and reasoning budget enabled.
+    Optimized for maximum reasoning capability.
+    """
+
+    def __init__(self):
+        self.api_key = os.environ.get("NVIDIA_API_KEY_NEMOTRON_SUPER") or os.environ.get("NVIDIA_API_KEY", "")
+        self.model = MODELS["nemotron_super"]["id"]
+        self.client = AsyncOpenAI(
+            base_url=NVIDIA_BASE_URL,
+            api_key=self.api_key
+        )
+        self._call_count = 0
+        self._error_count = 0
+
+    async def stream_response(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 16384,
+        temperature: float = 1.0,
+    ) -> AsyncIterator[str]:
+        """Stream tokens from NVIDIA Nemotron Super with thinking and reasoning."""
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+
+        try:
+            stream = await self.client.chat.completions.create(
+                model=self.model,
+                messages=full_messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=0.95,
+                reasoning_budget=16384,
+                chat_template_kwargs={"enable_thinking": True},
+                stream=True
+            )
+
+            async for chunk in stream:
+                # Output reasoning content if available
+                reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
+                if reasoning:
+                    self._call_count += 1
+                    yield reasoning
+
+                # Output regular content
+                if chunk.choices[0].delta.content is not None:
+                    self._call_count += 1
+                    yield chunk.choices[0].delta.content
+
+        except Exception as e:
+            self._error_count += 1
+            yield f"[NemotronSuperReactor error: {str(e)}]"
+
+    async def call(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 16384,
+    ) -> str:
+        """Non-streaming call — collects full streamed response."""
+        parts = []
+        async for chunk in self.stream_response(messages, system, max_tokens):
+            parts.append(chunk)
+        return "".join(parts)
+
+    def get_status(self) -> dict:
+        return {
+            "model": self.model,
+            "tokens_streamed": self._call_count,
+            "errors": self._error_count,
+            "online": bool(self.api_key),
+            "use_case": MODELS["nemotron_super"]["use_case"]
+        }
+
+
+class MinimaxReactor:
+    """
+    Balanced reactor powered by MinimaxAI MiniMax-M2.7.
+    Multimodal capabilities with efficient performance.
+    """
+
+    def __init__(self):
+        self.api_key = os.environ.get("NVIDIA_API_KEY_MINIMAX") or os.environ.get("NVIDIA_API_KEY", "")
+        self.model = MODELS["minimax"]["id"]
+        self.client = AsyncOpenAI(
+            base_url=NVIDIA_BASE_URL,
+            api_key=self.api_key
+        )
+        self._call_count = 0
+        self._error_count = 0
+
+    async def stream_response(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 8192,
+        temperature: float = 1.0,
+    ) -> AsyncIterator[str]:
+        """Stream tokens from MiniMax model."""
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+
+        try:
+            stream = await self.client.chat.completions.create(
+                model=self.model,
+                messages=full_messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=0.95,
+                stream=True
+            )
+
+            async for chunk in stream:
+                if not getattr(chunk, "choices", None):
+                    continue
+                if chunk.choices[0].delta.content is not None:
+                    self._call_count += 1
+                    yield chunk.choices[0].delta.content
+
+        except Exception as e:
+            self._error_count += 1
+            yield f"[MinimaxReactor error: {str(e)}]"
+
+    async def call(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 8192,
+    ) -> str:
+        """Non-streaming call — collects full streamed response."""
+        parts = []
+        async for chunk in self.stream_response(messages, system, max_tokens):
+            parts.append(chunk)
+        return "".join(parts)
+
+    def get_status(self) -> dict:
+        return {
+            "model": self.model,
+            "tokens_streamed": self._call_count,
+            "errors": self._error_count,
+            "online": bool(self.api_key),
+            "use_case": MODELS["minimax"]["use_case"]
+        }
+
+
+class StepFunReactor:
+    """
+    Flash reactor powered by StepFun AI Step-3.5-Flash.
+    Fast inference with thinking capabilities.
+    """
+
+    def __init__(self):
+        self.api_key = os.environ.get("NVIDIA_API_KEY_STEPFUN") or os.environ.get("NVIDIA_API_KEY", "")
+        self.model = MODELS["stepfun"]["id"]
+        self.client = AsyncOpenAI(
+            base_url=NVIDIA_BASE_URL,
+            api_key=self.api_key
+        )
+        self._call_count = 0
+        self._error_count = 0
+
+    async def stream_response(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 16384,
+        temperature: float = 1.0,
+    ) -> AsyncIterator[str]:
+        """Stream tokens from StepFun with reasoning support."""
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+
+        try:
+            stream = await self.client.chat.completions.create(
+                model=self.model,
+                messages=full_messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=0.9,
+                stream=True
+            )
+
+            async for chunk in stream:
+                if not getattr(chunk, "choices", None):
+                    continue
+
+                # Output reasoning content if available
+                reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
+                if reasoning:
+                    self._call_count += 1
+                    yield reasoning
+
+                # Output regular content
+                if chunk.choices[0].delta.content:
+                    self._call_count += 1
+                    yield chunk.choices[0].delta.content
+
+        except Exception as e:
+            self._error_count += 1
+            yield f"[StepFunReactor error: {str(e)}]"
+
+    async def call(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 16384,
+    ) -> str:
+        """Non-streaming call — collects full streamed response."""
+        parts = []
+        async for chunk in self.stream_response(messages, system, max_tokens):
+            parts.append(chunk)
+        return "".join(parts)
+
+    def get_status(self) -> dict:
+        return {
+            "model": self.model,
+            "tokens_streamed": self._call_count,
+            "errors": self._error_count,
+            "online": bool(self.api_key),
+            "use_case": MODELS["stepfun"]["use_case"]
         }
 
 

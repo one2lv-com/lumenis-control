@@ -1,5 +1,12 @@
 from .reactor import LumenisReactor, NvidiaReactor
-from .nvidia_reactors import NemotronReactor, GemmaReactor, UnifiedNvidiaReactor
+from .nvidia_reactors import (
+    NemotronReactor,
+    GemmaReactor,
+    NemotronSuperReactor,
+    MinimaxReactor,
+    StepFunReactor,
+    UnifiedNvidiaReactor
+)
 from .compass import FluxCompass
 from .itt import ITTCouncil
 from .maton import MatonBridge
@@ -10,6 +17,9 @@ __all__ = [
     "NvidiaReactor",
     "NemotronReactor",
     "GemmaReactor",
+    "NemotronSuperReactor",
+    "MinimaxReactor",
+    "StepFunReactor",
     "UnifiedNvidiaReactor",
     "FluxCompass",
     "ITTCouncil",

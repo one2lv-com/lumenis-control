@@ -23,6 +23,9 @@ from core import (
     NvidiaReactor,
     NemotronReactor,
     GemmaReactor,
+    NemotronSuperReactor,
+    MinimaxReactor,
+    StepFunReactor,
     UnifiedNvidiaReactor,
     FluxCompass,
     ITTCouncil,
@@ -35,6 +38,9 @@ reactor = LumenisReactor()
 nvidia  = NvidiaReactor()  # Gemma-4-31B-IT (backward compat)
 nemotron = NemotronReactor()  # Nemotron-Mini-4B-Instruct (fast)
 gemma = GemmaReactor()  # Gemma-4-31B-IT (reasoning)
+nemotron_super = NemotronSuperReactor()  # Nemotron-3-Super-120B (ultra)
+minimax = MinimaxReactor()  # MiniMax-M2.7 (balanced)
+stepfun = StepFunReactor()  # Step-3.5-Flash (flash reasoning)
 unified_nvidia = UnifiedNvidiaReactor()  # Auto-routing
 compass = FluxCompass()
 bridge  = MatonBridge()
@@ -98,8 +104,11 @@ async def status():
     return {
         "reactor": reactor.get_status(),
         "nvidia_reactors": {
+            "nemotron_mini": nemotron.get_status(),
             "gemma": gemma.get_status(),
-            "nemotron": nemotron.get_status(),
+            "nemotron_super": nemotron_super.get_status(),
+            "minimax": minimax.get_status(),
+            "stepfun": stepfun.get_status(),
             "unified": unified_nvidia.get_status(),
             "legacy": nvidia.get_status()  # backward compat
         },
