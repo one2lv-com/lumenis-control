@@ -18,11 +18,24 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from core import LumenisReactor, NvidiaReactor, FluxCompass, ITTCouncil, MatonBridge, VanguardNodePool
+from core import (
+    LumenisReactor,
+    NvidiaReactor,
+    NemotronReactor,
+    GemmaReactor,
+    UnifiedNvidiaReactor,
+    FluxCompass,
+    ITTCouncil,
+    MatonBridge,
+    VanguardNodePool
+)
 
 # ── Global instances ──────────────────────────────────────────────────────────
 reactor = LumenisReactor()
-nvidia  = NvidiaReactor()
+nvidia  = NvidiaReactor()  # Gemma-4-31B-IT (backward compat)
+nemotron = NemotronReactor()  # Nemotron-Mini-4B-Instruct (fast)
+gemma = GemmaReactor()  # Gemma-4-31B-IT (reasoning)
+unified_nvidia = UnifiedNvidiaReactor()  # Auto-routing
 compass = FluxCompass()
 bridge  = MatonBridge()
 council = ITTCouncil(reactor, compass)
@@ -84,7 +97,12 @@ async def status():
     from core.itt import SEATS
     return {
         "reactor": reactor.get_status(),
-        "nvidia": nvidia.get_status(),
+        "nvidia_reactors": {
+            "gemma": gemma.get_status(),
+            "nemotron": nemotron.get_status(),
+            "unified": unified_nvidia.get_status(),
+            "legacy": nvidia.get_status()  # backward compat
+        },
         "nodes": node_pool.get_status(),
         "compass": compass.get_stats(),
         "maton": bridge.get_status(),
