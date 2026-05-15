@@ -11,6 +11,63 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
+// Configuration for the Home Workstation
+const WORKSTATION_CONFIG = {
+    stationName: "Reactor_Core",
+    residentAgent: "Lumenis_Agentic_Core",
+    port: 3000,
+    assets: [
+        "flux_compass_a.tor",
+        "The_Inovative_Thought_Team",
+        "The_Registry_of_Thought"
+    ]
+};
+
+async function initializeReactorCore() {
+    console.log(`🌌 INITIALIZING WORKSTATION: ${WORKSTATION_CONFIG.stationName}`);
+    console.log(`🧠 DEPLOYING AGENT: ${WORKSTATION_CONFIG.residentAgent}`);
+    console.log("--------------------------------------------------");
+
+    try {
+        // 1. Mount the Flux Compass (.tor handle)
+        console.log(`📡 Mounting asset: ${WORKSTATION_CONFIG.assets[0]}...`);
+        // Logic to interface with the .tor file structure
+
+        // 2. Register the Thought Registry
+        console.log(`📚 Synchronizing: ${WORKSTATION_CONFIG.assets[2]}...`);
+
+        // 3. Establish the Home Workstation Directory
+        const corePath = path.join(__dirname, '../Reactor_Core');
+        if (!fs.existsSync(corePath)) {
+            fs.mkdirSync(corePath);
+            console.log(`✅ Reactor_Core directory created.`);
+        } else {
+            console.log(`✅ Reactor_Core directory exists.`);
+        }
+
+        // 4. Link Lumenis to the Core
+        const manifest = {
+            timestamp: Date.now(),
+            station: WORKSTATION_CONFIG.stationName,
+            status: "ACTIVE",
+            active_assets: WORKSTATION_CONFIG.assets,
+            environment: "Lumenis_Agentic_Runtime"
+        };
+
+        fs.writeFileSync(
+            path.join(corePath, 'station_manifest.json'),
+            JSON.stringify(manifest, null, 2)
+        );
+
+        console.log("--------------------------------------------------");
+        console.log("✨ REACTOR_CORE IS ONLINE");
+        console.log("🚀 Agentic Lumenis is now homed in Reactor_Core.");
+        console.log("");
+    } catch (error) {
+        console.error("❌ Initialization Failed:", error);
+    }
+}
+
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -141,16 +198,19 @@ setInterval(() => {
 }, 5000);
 
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
+  // Initialize Reactor Core
+  await initializeReactorCore();
+
   console.log('');
   console.log('🌌 ═══════════════════════════════════════════════');
   console.log('   LUMENIS ONE2LVOS RUNTIME INITIALIZED');
   console.log('🌌 ═══════════════════════════════════════════════');
   console.log('');
   console.log(`⚡ Server: http://localhost:${PORT}`);
+  console.log(`🏠 Workstation: ${WORKSTATION_CONFIG.stationName}`);
   console.log(`🧠 Runtime State: ${runtimeState.LUMENIS_CORE}`);
   console.log(`🦝 Agents: ${Object.keys(memory.agents).length} active`);
-  console.log('');
   console.log('🔗 WebSocket: Ready');
   console.log('💾 Memory: Loaded');
   console.log('');
