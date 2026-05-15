@@ -78,6 +78,15 @@ header .status {
   color: #94a3b8;
 }
 
+header a {
+  pointer-events: auto;
+}
+
+header a:hover {
+  opacity: 1 !important;
+  text-shadow: 0 0 10px var(--cyan-glow);
+}
+
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -307,6 +316,11 @@ header .status {
   <!-- Header -->
   <header>
     <h1>🌌 LUMENIS ONE2LVOS</h1>
+    <div style="margin: 10px 0; display: flex; gap: 15px; justify-content: center; font-size: 0.8em;">
+      <a href="index.html" style="color: var(--cyan); text-decoration: none; opacity: 1;">MAIN CONTROL</a>
+      <span style="color: #94a3b8;">|</span>
+      <a href="sovereign-lattice.html" style="color: var(--cyan); text-decoration: none; opacity: 0.7; transition: opacity 0.3s;">LATTICE VIEW</a>
+    </div>
     <div class="status">
       <span class="status-dot"></span>
       <span id="runtime-status">EVOLVING</span>
