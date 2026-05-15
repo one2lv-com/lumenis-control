@@ -53,6 +53,14 @@ const MODELS = {
         topP: 0.9,
         thinking: true,
         useCase: 'flash inference with reasoning'
+    },
+    kimi: {
+        id: 'moonshotai/kimi-k2.6',
+        maxTokens: 16384,
+        temperature: 1.0,
+        topP: 1.0,
+        thinking: true,
+        useCase: 'Moonshot AI Kimi K2.6, advanced reasoning'
     }
 };
 
@@ -84,7 +92,8 @@ class NvidiaClient {
             gemma: process.env.NVIDIA_API_KEY_SECONDARY || process.env.NVIDIA_API_KEY,
             nemotron_super: process.env.NVIDIA_API_KEY_NEMOTRON_SUPER || process.env.NVIDIA_API_KEY,
             minimax: process.env.NVIDIA_API_KEY_MINIMAX || process.env.NVIDIA_API_KEY,
-            stepfun: process.env.NVIDIA_API_KEY_STEPFUN || process.env.NVIDIA_API_KEY
+            stepfun: process.env.NVIDIA_API_KEY_STEPFUN || process.env.NVIDIA_API_KEY,
+            kimi: process.env.NVIDIA_API_KEY_KIMI || process.env.NVIDIA_API_KEY
         };
 
         return keyMap[model] || process.env.NVIDIA_API_KEY;
@@ -190,7 +199,8 @@ class UnifiedNvidiaClient {
             gemma: new NvidiaClient('gemma'),
             nemotron_super: new NvidiaClient('nemotron_super'),
             minimax: new NvidiaClient('minimax'),
-            stepfun: new NvidiaClient('stepfun')
+            stepfun: new NvidiaClient('stepfun'),
+            kimi: new NvidiaClient('kimi')
         };
 
         this.routeCount = {
@@ -198,7 +208,8 @@ class UnifiedNvidiaClient {
             gemma: 0,
             nemotron_super: 0,
             minimax: 0,
-            stepfun: 0
+            stepfun: 0,
+            kimi: 0
         };
     }
 

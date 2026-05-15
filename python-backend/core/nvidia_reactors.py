@@ -64,6 +64,14 @@ MODELS = {
         "top_p": 0.9,
         "thinking": True,
         "use_case": "flash inference with reasoning"
+    },
+    "kimi": {
+        "id": "moonshotai/kimi-k2.6",
+        "max_tokens": 16384,
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "thinking": True,
+        "use_case": "Moonshot AI Kimi K2.6, advanced reasoning"
     }
 }
 
@@ -274,8 +282,10 @@ class NemotronSuperReactor:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 top_p=0.95,
-                reasoning_budget=16384,
-                chat_template_kwargs={"enable_thinking": True},
+                extra_body={
+                    "chat_template_kwargs": {"enable_thinking": True},
+                    "reasoning_budget": 16384
+                },
                 stream=True
             )
 
@@ -466,6 +476,105 @@ class StepFunReactor:
             "errors": self._error_count,
             "online": bool(self.api_key),
             "use_case": MODELS["stepfun"]["use_case"]
+        }
+
+
+class KimiReactor:
+    """
+    Advanced reactor powered by Moonshot AI Kimi K2.6.
+    Supports thinking mode with chat template kwargs.
+    Uses raw HTTP/httpx for SSE streaming (alternative implementation).
+    """
+
+    def __init__(self):
+        self.api_key = os.environ.get("NVIDIA_API_KEY_KIMI") or os.environ.get("NVIDIA_API_KEY", "")
+        self.model = MODELS["kimi"]["id"]
+        self._call_count = 0
+        self._error_count = 0
+
+    async def stream_response(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 16384,
+        temperature: float = 1.0,
+    ) -> AsyncIterator[str]:
+        """Stream tokens from Kimi K2.6 using raw HTTP/SSE."""
+        full_messages = []
+        if system:
+            full_messages.append({"role": "system", "content": system})
+        full_messages.extend(messages)
+
+        payload = {
+            "model": self.model,
+            "messages": full_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "top_p": 1.0,
+            "stream": True,
+            "chat_template_kwargs": {"thinking": True}
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream"
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                async with client.stream(
+                    "POST", NVIDIA_API_URL, headers=headers, json=payload
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+                        if line.startswith("data: "):
+                            data = line[6:].strip()
+                            if data == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(data)
+                                delta = chunk["choices"][0]["delta"]
+
+                                # Output reasoning if available
+                                reasoning = delta.get("reasoning_content")
+                                if reasoning:
+                                    self._call_count += 1
+                                    yield reasoning
+
+                                # Output regular content
+                                text = delta.get("content", "")
+                                if text:
+                                    self._call_count += 1
+                                    yield text
+                            except Exception:
+                                continue
+
+        except Exception as e:
+            self._error_count += 1
+            yield f"[KimiReactor error: {str(e)}]"
+
+    async def call(
+        self,
+        messages: list[dict],
+        system: str = "",
+        max_tokens: int = 16384,
+    ) -> str:
+        """Non-streaming call — collects full streamed response."""
+        parts = []
+        async for chunk in self.stream_response(messages, system, max_tokens):
+            parts.append(chunk)
+        return "".join(parts)
+
+    def get_status(self) -> dict:
+        return {
+            "model": self.model,
+            "tokens_streamed": self._call_count,
+            "errors": self._error_count,
+            "online": bool(self.api_key),
+            "use_case": MODELS["kimi"]["use_case"]
         }
 
 

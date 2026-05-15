@@ -5,6 +5,7 @@ from .nvidia_reactors import (
     NemotronSuperReactor,
     MinimaxReactor,
     StepFunReactor,
+    KimiReactor,
     UnifiedNvidiaReactor
 )
 from .compass import FluxCompass
@@ -20,6 +21,7 @@ __all__ = [
     "NemotronSuperReactor",
     "MinimaxReactor",
     "StepFunReactor",
+    "KimiReactor",
     "UnifiedNvidiaReactor",
     "FluxCompass",
     "ITTCouncil",

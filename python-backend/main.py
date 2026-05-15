@@ -26,6 +26,7 @@ from core import (
     NemotronSuperReactor,
     MinimaxReactor,
     StepFunReactor,
+    KimiReactor,
     UnifiedNvidiaReactor,
     FluxCompass,
     ITTCouncil,
@@ -41,6 +42,7 @@ gemma = GemmaReactor()  # Gemma-4-31B-IT (reasoning)
 nemotron_super = NemotronSuperReactor()  # Nemotron-3-Super-120B (ultra)
 minimax = MinimaxReactor()  # MiniMax-M2.7 (balanced)
 stepfun = StepFunReactor()  # Step-3.5-Flash (flash reasoning)
+kimi = KimiReactor()  # Moonshot AI Kimi K2.6 (advanced reasoning)
 unified_nvidia = UnifiedNvidiaReactor()  # Auto-routing
 compass = FluxCompass()
 bridge  = MatonBridge()
@@ -109,6 +111,7 @@ async def status():
             "nemotron_super": nemotron_super.get_status(),
             "minimax": minimax.get_status(),
             "stepfun": stepfun.get_status(),
+            "kimi": kimi.get_status(),
             "unified": unified_nvidia.get_status(),
             "legacy": nvidia.get_status()  # backward compat
         },
