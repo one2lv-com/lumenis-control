@@ -11,6 +11,7 @@ FastAPI + WebSocket server that wires together all four layers:
 import asyncio
 import json
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -53,6 +54,53 @@ node_pool = VanguardNodePool()
 _ws_clients: set[WebSocket] = set()
 
 
+def build_manifold_snapshot() -> dict:
+    return {
+        "reactor": reactor.get_status(),
+        "nodes": node_pool.get_status(),
+        "compass": compass.get_stats(),
+        "maton": bridge.get_status(),
+    }
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: set[WebSocket] = set()
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        await self.send_personal_json(
+            websocket,
+            {
+                "type": "manifold_state",
+                "message": "Persistent manifold linked.",
+                "data": build_manifold_snapshot(),
+            },
+        )
+        print(f"[CORE] New persistent node linked: {websocket.client}")
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.discard(websocket)
+        print("[CORE] Node disconnected from manifold.")
+
+    async def send_personal_json(self, websocket: WebSocket, payload: dict):
+        await websocket.send_json(payload)
+
+    async def broadcast_json(self, payload: dict):
+        dead = set()
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(payload)
+            except Exception:
+                dead.add(connection)
+        for connection in dead:
+            self.disconnect(connection)
+
+
+vanguard_manager = ConnectionManager()
+
+
 async def broadcast(msg: dict):
     dead = set()
     for ws in _ws_clients:
@@ -66,14 +114,18 @@ async def broadcast(msg: dict):
 @reactor.on_pulse
 async def on_pulse(status):
     """Broadcast reactor heartbeat to all connected clients."""
+    snapshot = build_manifold_snapshot()
     await broadcast(
         {
             "type": "pulse",
-            "data": {
-                **reactor.get_status(),
-                **node_pool.get_status(),
-                **compass.get_stats(),
-            },
+            "data": snapshot,
+        }
+    )
+    await vanguard_manager.broadcast_json(
+        {
+            "type": "pulse",
+            "ts": time.time(),
+            "data": snapshot,
         }
     )
 
@@ -210,6 +262,81 @@ async def websocket_endpoint(ws: WebSocket):
     except Exception as e:
         await ws.send_json({"type": "error", "message": str(e)})
         _ws_clients.discard(ws)
+
+
+@app.websocket("/ws/vanguard")
+async def vanguard_endpoint(websocket: WebSocket):
+    await vanguard_manager.connect(websocket)
+
+    try:
+        while True:
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=25)
+            except asyncio.TimeoutError:
+                await vanguard_manager.send_personal_json(
+                    websocket,
+                    {"type": "ping", "ts": time.time()},
+                )
+                continue
+
+            try:
+                message = json.loads(raw)
+            except json.JSONDecodeError:
+                await vanguard_manager.send_personal_json(
+                    websocket,
+                    {
+                        "type": "telemetry_echo",
+                        "ts": time.time(),
+                        "message": raw,
+                    },
+                )
+                continue
+
+            message_type = message.get("type", "telemetry")
+            source = message.get("source", "client")
+
+            if message_type in {"heartbeat", "ping"}:
+                await vanguard_manager.send_personal_json(
+                    websocket,
+                    {
+                        "type": "pong",
+                        "ts": time.time(),
+                        "data": {
+                            "frequency_hz": reactor.get_status()["frequency_hz"],
+                            "source": source,
+                        },
+                    },
+                )
+                continue
+
+            if message_type == "terminal_command":
+                await vanguard_manager.broadcast_json(
+                    {
+                        "type": "telemetry_echo",
+                        "ts": time.time(),
+                        "source": source,
+                        "message": f"Terminal command received: {message.get('command', '')}",
+                    }
+                )
+                continue
+
+            await vanguard_manager.broadcast_json(
+                {
+                    "type": "telemetry_echo",
+                    "ts": time.time(),
+                    "source": source,
+                    "message": message,
+                }
+            )
+
+    except WebSocketDisconnect:
+        vanguard_manager.disconnect(websocket)
+    except Exception as e:
+        await vanguard_manager.send_personal_json(
+            websocket,
+            {"type": "error", "message": str(e)},
+        )
+        vanguard_manager.disconnect(websocket)
 
 
 async def handle_chat(ws: WebSocket, msg: dict):

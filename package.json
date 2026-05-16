@@ -7,7 +7,11 @@
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
     "sync": "node sync_workstation.js",
-    "build": "echo 'Build complete'"
+    "build": "echo 'Build complete'",
+    "pm2:start": "pm2 start lumenis.config.js --update-env",
+    "pm2:status": "pm2 status",
+    "pm2:logs": "pm2 logs",
+    "pm2:stop": "pm2 delete lumenis-node-bridge lumenis-sovereign-core"
   },
   "keywords": ["lumenis", "holographic", "autonomous", "ai", "supabase"],
   "author": "ONE2LVOS",

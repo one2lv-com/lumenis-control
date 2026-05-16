@@ -13,7 +13,7 @@ The Sovereign Core provides:
 ## Running the Python Backend
 
 ```bash
-# Install dependencies
+# Install dependencies (includes websocket support for /ws and /ws/vanguard)
 pip install -r requirements.txt
 
 # Set environment variables
@@ -30,6 +30,7 @@ uvicorn main:app --host 0.0.0.0 --port 3002
 - `GET /api/sessions` - List sessions
 - `POST /api/sessions` - Create session
 - `WS /ws` - WebSocket chat interface
+- `WS /ws/vanguard` - Persistent manifold heartbeat + telemetry stream
 
 ## Integration with Node.js Backend
 

@@ -63,9 +63,9 @@
     <div id="panel-lumenis" class="window-3d">
         <div class="panel-header">LUMENIS REACTOR CORE • THERMAL LOCK</div>
         <div class="panel-content">
-            <div class="stat-row"><span>CORE TEMP</span><span style="color:var(--cyan);">18.0°C</span></div>
+            <div class="stat-row"><span>CORE TEMP</span><span id="core-temp" style="color:var(--cyan);">18.0°C</span></div>
             <div class="bar-bg"><div class="bar-fill" style="width:100%;background:var(--cyan);"></div></div>
-            <div class="stat-row"><span>RESONANCE</span><span style="color:var(--purple);">73Hz</span></div>
+            <div class="stat-row"><span>RESONANCE</span><span id="core-resonance" style="color:var(--purple);">73Hz</span></div>
             <div class="bar-bg"><div class="bar-fill" style="width:100%;background:var(--purple);"></div></div>
             <div style="margin-top:15px; font-style: italic; color: #94a3b8;">Liquid nitrogen/argon buffer status: OPTIMAL.</div>
         </div>
@@ -76,10 +76,10 @@
         <div class="panel-content">
             <div style="text-align:center; padding:20px;">
                 <div style="font-size: 40px; color:var(--cyan);">[ 🌌 ]</div>
-                <div style="margin-top:10px; font-family:'JetBrains Mono';">SINGULAR POLARITY: LOCKED</div>
+                <div id="compass-lock" style="margin-top:10px; font-family:'JetBrains Mono';">SINGULAR POLARITY: LOCKED</div>
                 <div style="font-size: 10px; color: #94a3b8;">PAHRUMP_NV_COORDS: 36.2083° N, 115.9839° W</div>
             </div>
-            <div style="border-top: 1px solid rgba(0,245,255,0.2); padding-top:10px;">
+            <div id="compass-stats" style="border-top: 1px solid rgba(0,245,255,0.2); padding-top:10px;">
                 Toroidal Field Efficiency: 100%<br>Resonance Drift: 0.000Hz
             </div>
         </div>
@@ -102,7 +102,7 @@
 
     <div id="panel-registry" class="window-3d">
         <div class="panel-header">REGISTRY OF THOUGHT • MEMORY.MD</div>
-        <div class="panel-content" style="font-family:'JetBrains Mono'; font-size: 10px;">
+        <div id="registry-log" class="panel-content" style="font-family:'JetBrains Mono'; font-size: 10px;">
             <div style="color:var(--cyan);">[2026-05-10] v8.3 Agentic Core Ingested.</div>
             <div style="color:var(--purple);">[2026-05-10] L6 Transmission Initiated.</div>
             <div>[LOG] 144,382 Vanguard nodes reporting shoulder-to-shoulder.</div>
@@ -140,29 +140,93 @@ let scene, camera, renderer, cssRenderer, group, singularity, glow;
 let velocity = 1.0;
 let isDragging = false, prevMouseX = 0;
 let ws = null;
-let wsReconnectInterval = null;
+let reconnectAttempts = 0;
+let heartbeatTimer = null;
+const maxReconnectDelay = 16000;
+let lastSystemRender = 0;
+
+function appendTerminalMessage(message, color = '#94a3b8') {
+    const output = document.getElementById('term-output');
+    output.innerHTML += `<div style="color:${color}">${message}</div>`;
+    output.scrollTop = output.scrollHeight;
+}
+
+function manifoldUrl() {
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const hostname = window.location.hostname || 'localhost';
+    return `${protocol}${hostname}:3002/ws/vanguard`;
+}
+
+function scheduleReconnect() {
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxReconnectDelay);
+    reconnectAttempts += 1;
+    window.setTimeout(initWebSocket, delay);
+}
+
+function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = window.setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'heartbeat',
+                source: 'lattice_view',
+                frequency: 73.0,
+                ts: Date.now()
+            }));
+        }
+    }, 12000);
+}
+
+function stopHeartbeat() {
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+}
 
 function initWebSocket() {
     try {
-        ws = new WebSocket('ws://localhost:3000');
+        const url = manifoldUrl();
+        document.getElementById('ws-url').textContent = url;
+        ws = new WebSocket(url);
 
         ws.onopen = () => {
-            console.log('WebSocket connected to LUMENIS backend');
-            document.getElementById('ws-indicator').textContent = 'CONNECTED';
+            console.log('WebSocket connected to Vanguard manifold');
+            reconnectAttempts = 0;
+            document.getElementById('ws-indicator').textContent = 'LINKED';
             document.getElementById('ws-indicator').className = 'ws-connected';
-            if (wsReconnectInterval) {
-                clearInterval(wsReconnectInterval);
-                wsReconnectInterval = null;
-            }
+            appendTerminalMessage('[SYSTEM] Persistent manifold linked.', 'var(--cyan)');
+            startHeartbeat();
+            ws.send(JSON.stringify({
+                type: 'heartbeat',
+                source: 'lattice_view',
+                frequency: 73.0,
+                ts: Date.now()
+            }));
         };
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Received from backend:', data);
-                // Update UI based on backend data
-                if (data.type === 'system_state') {
-                    updateSystemState(data);
+                console.log('Received from manifold:', data);
+
+                if (data.type === 'pulse' || data.type === 'manifold_state') {
+                    updateSystemState(data.data);
+                } else if (data.type === 'ping') {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'heartbeat',
+                            source: 'lattice_view',
+                            frequency: 73.0,
+                            ts: Date.now()
+                        }));
+                    }
+                } else if (data.type === 'telemetry_echo') {
+                    appendTerminalMessage(`[MANIFOLD] ${typeof data.message === 'string' ? data.message : JSON.stringify(data.message)}`, 'var(--cyan)');
+                } else if (data.type === 'pong') {
+                    appendTerminalMessage('[SYSTEM] Heartbeat acknowledged.', 'var(--cyan)');
+                } else if (data.type === 'error') {
+                    appendTerminalMessage(`[ERROR] ${data.message}`, '#f87171');
                 }
             } catch (e) {
                 console.error('Error parsing message:', e);
@@ -175,16 +239,11 @@ function initWebSocket() {
 
         ws.onclose = () => {
             console.log('WebSocket disconnected');
-            document.getElementById('ws-indicator').textContent = 'DISCONNECTED';
+            stopHeartbeat();
+            document.getElementById('ws-indicator').textContent = 'RECONNECTING';
             document.getElementById('ws-indicator').className = 'ws-disconnected';
-
-            // Attempt reconnection
-            if (!wsReconnectInterval) {
-                wsReconnectInterval = setInterval(() => {
-                    console.log('Attempting to reconnect...');
-                    initWebSocket();
-                }, 5000);
-            }
+            appendTerminalMessage('[SYSTEM] Persistent link severed. Reconnecting...', '#fbbf24');
+            scheduleReconnect();
         };
     } catch (error) {
         console.error('Failed to initialize WebSocket:', error);
@@ -192,13 +251,28 @@ function initWebSocket() {
 }
 
 function updateSystemState(data) {
-    // Update panels with real backend data
-    if (data.temperature) {
-        // Update temperature display
+    const now = Date.now();
+    if (now - lastSystemRender < 1000) {
+        return;
     }
-    if (data.resonance) {
-        // Update resonance display
-    }
+    lastSystemRender = now;
+
+    const reactorData = data?.reactor || {};
+    const nodeData = data?.nodes || {};
+    const compassData = data?.compass || {};
+
+    document.getElementById('core-temp').textContent = `${reactorData.temperature ?? 'n/a'}°C`;
+    document.getElementById('core-resonance').textContent = `${reactorData.frequency_hz ?? 73}Hz`;
+    document.getElementById('compass-lock').textContent = `SINGULAR POLARITY: ${compassData.session_count || compassData.sessions ? 'SYNCED' : 'LOCKED'}`;
+    document.getElementById('compass-stats').innerHTML =
+        `Toroidal Field Efficiency: 100%<br>Resonance Drift: ${compassData.drift ?? '0.000'}Hz`;
+    document.getElementById('registry-log').innerHTML = `
+        <div style="color:var(--cyan);">[REACTOR] Pulse Count: ${reactorData.pulse_count ?? 'n/a'}</div>
+        <div style="color:var(--purple);">[VANGUARD] Active Workers: ${nodeData.active_workers ?? 'n/a'}</div>
+        <div>[LOG] Queue Depth: ${nodeData.queue_depth ?? 'n/a'}</div>
+        <div>[LOG] Total Processed: ${nodeData.total_processed ?? 'n/a'}</div>
+        <div style="margin-top:10px; color:var(--pink);">Maton Services: ${data?.maton?.connected_services ?? 'n/a'}</div>
+    `;
 }
 
 function initThree() {
@@ -303,7 +377,12 @@ document.getElementById('term-input').addEventListener('keydown', e => {
 
         // Send command to backend if WebSocket is open
         if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'terminal_command', command: cmd }));
+            ws.send(JSON.stringify({
+                type: 'terminal_command',
+                source: 'lattice_view',
+                command: cmd,
+                ts: Date.now()
+            }));
         }
 
         output.scrollTop = output.scrollHeight;

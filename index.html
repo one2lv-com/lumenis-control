@@ -325,6 +325,9 @@ header a:hover {
       <span class="status-dot"></span>
       <span id="runtime-status">EVOLVING</span>
     </div>
+    <div class="status" style="font-size: 0.75em;">
+      <span id="manifold-status">MANIFOLD: CONNECTING</span>
+    </div>
   </header>
 
   <!-- Agent Badge -->
@@ -425,6 +428,136 @@ window.addEventListener('resize', () => {
 // ==================== WEBSOCKET CONNECTION ====================
 
 const socket = io();
+let manifoldSocket = null;
+let manifoldReconnectAttempts = 0;
+let manifoldHeartbeatTimer = null;
+let runtimeStateCache = {};
+let manifoldStateCache = { link: 'CONNECTING' };
+const maxReconnectDelay = 16000;
+
+function manifoldUrl() {
+  const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const hostname = window.location.hostname || 'localhost';
+  return `${protocol}${hostname}:3002/ws/vanguard`;
+}
+
+function setManifoldStatus(text) {
+  document.getElementById('manifold-status').textContent = text;
+  manifoldStateCache.link = text.replace('MANIFOLD: ', '');
+  renderStatePanel();
+}
+
+function startManifoldHeartbeat() {
+  stopManifoldHeartbeat();
+  manifoldHeartbeatTimer = setInterval(() => {
+    if (manifoldSocket && manifoldSocket.readyState === WebSocket.OPEN) {
+      manifoldSocket.send(JSON.stringify({
+        type: 'heartbeat',
+        source: 'main_control',
+        frequency: 73.0,
+        ts: Date.now()
+      }));
+    }
+  }, 12000);
+}
+
+function stopManifoldHeartbeat() {
+  if (manifoldHeartbeatTimer) {
+    clearInterval(manifoldHeartbeatTimer);
+    manifoldHeartbeatTimer = null;
+  }
+}
+
+function scheduleManifoldReconnect() {
+  const delay = Math.min(1000 * Math.pow(2, manifoldReconnectAttempts), maxReconnectDelay);
+  manifoldReconnectAttempts += 1;
+  window.setTimeout(connectToVanguardManifold, delay);
+}
+
+function updateManifoldState(payload) {
+  if (!payload) {
+    return;
+  }
+
+  manifoldStateCache = {
+    ...manifoldStateCache,
+    ...payload,
+    link: manifoldStateCache.link
+  };
+  renderStatePanel();
+}
+
+function handleManifoldMessage(message) {
+  if (message.type === 'pulse' || message.type === 'manifold_state') {
+    updateManifoldState(message.data);
+    return;
+  }
+
+  if (message.type === 'ping') {
+    if (manifoldSocket && manifoldSocket.readyState === WebSocket.OPEN) {
+      manifoldSocket.send(JSON.stringify({
+        type: 'heartbeat',
+        source: 'main_control',
+        frequency: 73.0,
+        ts: Date.now()
+      }));
+    }
+    return;
+  }
+
+  if (message.type === 'pong') {
+    return;
+  }
+
+  if (message.type === 'telemetry_echo') {
+    addLog(`Manifold: ${typeof message.message === 'string' ? message.message : JSON.stringify(message.message)}`);
+    return;
+  }
+
+  if (message.type === 'error') {
+    addLog(`Manifold error: ${message.message}`);
+  }
+}
+
+function connectToVanguardManifold() {
+  const url = manifoldUrl();
+  addLog(`Connecting manifold: ${url}`);
+  setManifoldStatus('MANIFOLD: CONNECTING');
+
+  manifoldSocket = new WebSocket(url);
+
+  manifoldSocket.onopen = () => {
+    manifoldReconnectAttempts = 0;
+    setManifoldStatus('MANIFOLD: LINKED');
+    addLog('Persistent manifold linked');
+    startManifoldHeartbeat();
+    manifoldSocket.send(JSON.stringify({
+      type: 'heartbeat',
+      source: 'main_control',
+      frequency: 73.0,
+      ts: Date.now()
+    }));
+  };
+
+  manifoldSocket.onmessage = (event) => {
+    try {
+      handleManifoldMessage(JSON.parse(event.data));
+    } catch (error) {
+      addLog(`Manifold parse error: ${error.message}`);
+    }
+  };
+
+  manifoldSocket.onclose = (event) => {
+    stopManifoldHeartbeat();
+    setManifoldStatus('MANIFOLD: RECONNECTING');
+    addLog(`Manifold closed (${event.code}). Reconnecting...`);
+    scheduleManifoldReconnect();
+  };
+
+  manifoldSocket.onerror = () => {
+    addLog('Manifold socket error');
+  };
+}
 
 // Connection events
 socket.on('connect', () => {
@@ -465,14 +598,32 @@ socket.on('runtime_sync', (data) => {
 // ==================== UI UPDATES ====================
 
 function updateRuntimeState(state) {
-  const statePanel = document.getElementById('state-panel');
   const statusSpan = document.getElementById('runtime-status');
-
+  runtimeStateCache = state;
   statusSpan.textContent = state.LUMENIS_CORE || 'UNKNOWN';
+  renderStatePanel();
+}
 
-  statePanel.innerHTML = Object.keys(state)
+function renderStatePanel() {
+  const statePanel = document.getElementById('state-panel');
+  const panelState = {
+    ...runtimeStateCache,
+    SOVEREIGN_MANIFOLD: manifoldStateCache.link
+  };
+
+  if (manifoldStateCache.reactor) {
+    panelState.REACTOR_TEMP = manifoldStateCache.reactor.temperature;
+    panelState.REACTOR_PULSES = manifoldStateCache.reactor.pulse_count;
+  }
+
+  if (manifoldStateCache.nodes) {
+    panelState.VANGUARD_ACTIVE = manifoldStateCache.nodes.active_workers ?? manifoldStateCache.nodes.active_nodes;
+    panelState.VANGUARD_QUEUE = manifoldStateCache.nodes.queue_depth;
+  }
+
+  statePanel.innerHTML = Object.keys(panelState)
     .filter(key => key !== 'connectedClients')
-    .map(key => `<div style="margin: 3px 0;"><strong>${key}:</strong> ${state[key]}</div>`)
+    .map(key => `<div style="margin: 3px 0;"><strong>${key}:</strong> ${panelState[key]}</div>`)
     .join('');
 }
 
@@ -550,6 +701,15 @@ raccoon.addEventListener('click', () => {
     status: 'ACTIVE'
   });
 
+  if (manifoldSocket && manifoldSocket.readyState === WebSocket.OPEN) {
+    manifoldSocket.send(JSON.stringify({
+      type: 'telemetry',
+      source: 'main_control',
+      event: 'raccoon_activated',
+      ts: Date.now()
+    }));
+  }
+
   addLog('Raccoon agent activated');
 });
 
@@ -567,6 +727,7 @@ document.addEventListener('keydown', (e) => {
 console.log('%c🌌 LUMENIS ONE2LVOS LOADED', 'color: #2dd4bf; font-size: 20px; font-weight: bold;');
 console.log('%cPress L to toggle log output', 'color: #94a3b8; font-size: 12px;');
 console.log('%cClick raccoon to activate agent', 'color: #94a3b8; font-size: 12px;');
+connectToVanguardManifold();
 
 </script>
 
