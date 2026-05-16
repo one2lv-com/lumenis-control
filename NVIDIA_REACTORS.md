@@ -124,10 +124,10 @@ Add to your `.env` files:
 
 ```bash
 # Primary NVIDIA API key (for Nemotron and first Gemma instance)
-NVIDIA_API_KEY=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
+NVIDIA_API_KEY=nvapi-your_nvidia_api_key_here
 
 # Secondary NVIDIA API key (optional, for load balancing)
-NVIDIA_API_KEY_SECONDARY=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
+NVIDIA_API_KEY_SECONDARY=nvapi-your_secondary_nvidia_key_here
 ```
 
 ### Model Specifications

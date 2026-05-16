@@ -10,8 +10,8 @@ postgresql://postgres.pplbxjguhmfeuptyamic:[PASSWORD]@aws-0-us-west-1.pooler.sup
 ```
 
 You'll use the Supabase JavaScript/Python clients with:
-- `SUPABASE_URL`: https://pplbxjguhmfeuptyamic.supabase.co
-- `SUPABASE_SERVICE_KEY`: sb_secret_EZCx5QHkVoN7ZM2mVkrj3w_Z2UZnXVs
+- `SUPABASE_URL`: https://your-project.supabase.co
+- `SUPABASE_SERVICE_KEY`: your_supabase_service_key_here
 
 ## Benefits
 - ✅ No database password needed

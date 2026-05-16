@@ -205,9 +205,9 @@ curl -X POST http://localhost:3002/chat \
 In browser console:
 ```javascript
 // Check if tables exist
-fetch('https://pplbxjguhmfeuptyamic.supabase.co/rest/v1/runtime_states', {
+fetch('https://your-project.supabase.co/rest/v1/runtime_states', {
   headers: {
-    'apikey': 'sb_publishable_7jgbj0ijKOwPRq1oeymFVQ_Ags_rIjr'
+    'apikey': 'your_supabase_anon_key_here'
   }
 }).then(r => r.json()).then(console.log)
 ```

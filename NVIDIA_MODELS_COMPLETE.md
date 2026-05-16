@@ -134,19 +134,19 @@ Your `.env` files are configured with all API keys:
 
 ```bash
 # Primary (Nemotron Mini, Gemma)
-NVIDIA_API_KEY=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
+NVIDIA_API_KEY=nvapi-your_nvidia_api_key_here
 
 # Secondary (Gemma)
-NVIDIA_API_KEY_SECONDARY=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
+NVIDIA_API_KEY_SECONDARY=nvapi-your_secondary_nvidia_key_here
 
 # Nemotron Super (120B)
-NVIDIA_API_KEY_NEMOTRON_SUPER=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
+NVIDIA_API_KEY_NEMOTRON_SUPER=nvapi-your_nemotron_super_key_here
 
 # MiniMax
-NVIDIA_API_KEY_MINIMAX=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
+NVIDIA_API_KEY_MINIMAX=nvapi-your_minimax_key_here
 
 # StepFun
-NVIDIA_API_KEY_STEPFUN=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
+NVIDIA_API_KEY_STEPFUN=nvapi-your_stepfun_key_here
 ```
 
 ---

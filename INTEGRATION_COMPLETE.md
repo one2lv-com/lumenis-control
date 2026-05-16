@@ -30,13 +30,13 @@ Your `.env` files are now configured with:
 
 ```bash
 # NVIDIA AI (Active)
-NVIDIA_API_KEY=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
-NVIDIA_API_KEY_SECONDARY=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
+NVIDIA_API_KEY=nvapi-your_nvidia_api_key_here
+NVIDIA_API_KEY_SECONDARY=nvapi-your_secondary_nvidia_key_here
 
 # Supabase (Active)
-SUPABASE_URL=https://pplbxjguhmfeuptyamic.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_7jgbj0ijKOwPRq1oeymFVQ_Ags_rIjr
-SUPABASE_SERVICE_KEY=sb_secret_EZCx5QHkVoN7ZM2mVkrj3w_Z2UZnXVs
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_KEY=your_supabase_service_key_here
 
 # Discord (Active)
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/754920938356604989/...
