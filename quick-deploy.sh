@@ -26,7 +26,7 @@ from supabase import create_client, Client
 import os
 
 url = "https://pplbxjguhmfeuptyamic.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbGJ4amd1aG1mZXVwdHlhbWljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc4OTI2MSwiZXhwIjoyMDkxMzY1MjYxfQ.mVygAfYoy3dyQrHCQ3_XuVirOFcRRjbm7jNS4um0RqY"
+key = "<SUPABASE_SERVICE_ROLE_JWT>"
 
 supabase: Client = create_client(url, key)
 
