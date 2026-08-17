@@ -20,6 +20,19 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from core import (
+
+# ── Input validation models ───────────────────────────────────────────────
+from pydantic import BaseModel, Field
+
+class SessionCreate(BaseModel):
+    title: str = Field(default="New Session", max_length=200)
+
+class FactCreate(BaseModel):
+    key: str = Field(..., min_length=1, max_length=200)
+    value: str = Field(..., max_length=10000)
+    session_id: str | None = None
+
+
     LumenisReactor,
     NvidiaReactor,
     NemotronReactor,
@@ -183,7 +196,7 @@ async def list_sessions():
 
 
 @app.post("/api/sessions")
-async def create_session(body: dict = None):
+async def create_session(body: SessionCreate = None):
     title = (body or {}).get("title", "New Session")
     sid = compass.create_session(title)
     return {"session_id": sid}
@@ -200,7 +213,7 @@ async def get_facts(session_id: str):
 
 
 @app.post("/api/facts")
-async def store_fact(body: dict):
+async def store_fact(body: FactCreate):
     fid = compass.store_fact(
         key=body["key"],
         value=body["value"],
