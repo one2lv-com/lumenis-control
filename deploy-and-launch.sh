@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 # Supabase Configuration
 SUPABASE_URL="https://pplbxjguhmfeuptyamic.supabase.co"
-SUPABASE_SERVICE_JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbGJ4amd1aG1mZXVwdHlhbWljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc4OTI2MSwiZXhwIjoyMDkxMzY1MjYxfQ.mVygAfYoy3dyQrHCQ3_XuVirOFcRRjbm7jNS4um0RqY"
+SUPABASE_SERVICE_JWT="<SUPABASE_SERVICE_ROLE_JWT>"
 
 # Step 1: Deploy Database Schema
 echo -e "${CYAN}[1/5] Deploying Database Schema to Supabase...${NC}"
@@ -24,7 +24,7 @@ import urllib.request
 import json
 
 SUPABASE_URL = "https://pplbxjguhmfeuptyamic.supabase.co"
-SERVICE_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbGJ4amd1aG1mZXVwdHlhbWljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc4OTI2MSwiZXhwIjoyMDkxMzY1MjYxfQ.mVygAfYoy3dyQrHCQ3_XuVirOFcRRjbm7jNS4um0RqY"
+SERVICE_JWT = "<SUPABASE_SERVICE_ROLE_JWT>"
 
 # Read SQL schema
 with open('supabase-schema.sql', 'r') as f:
